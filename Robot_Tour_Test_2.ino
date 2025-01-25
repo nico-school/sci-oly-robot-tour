@@ -1,18 +1,22 @@
-int encoderA = 9;
-int input1 = 2;
-int input2 = 3;
-int encoderB = 10;
-int input3 = 4;
-int input4 = 5;
-int ENCA = 6;  //encoder inputs on the arduino being defined
-int ENCB = 7;
-int ENCC = 11;
-int ENCD = 12;
+/*  Arduino DC Motor Control - PWM | H-Bridge | L298N  -  Example 01
 
+    by Dejan Nedelkovski, www.HowToMechatronics.com
+*/
 
-static const int heartbeat = 13;
-static const int wheelA = true;
-static const int wheelB = true;
+#define PWM 9
+#define in1 6
+#define in2 7
+#define PWM2 10
+#define in3 11
+#define in4 12
+
+static const int ENCA = 2; // YELLOW
+static const int ENCB = 3; // WHITE
+
+static const int ENCC = 4; // YELLOW
+static const int ENCD = 5; // WHITE
+
+int pos = 0;
 
 template<typename T>
 Print& operator<<(Print& printer, T value) {
@@ -20,75 +24,129 @@ Print& operator<<(Print& printer, T value) {
   return printer;
 }
 
-void moveForward(int speed, int time) {
-  digitalWrite(input1, HIGH); 
-  digitalWrite(input2, LOW);
-  digitalWrite(encoderA, speed);
-  digitalWrite(input3, HIGH);
-  digitalWrite(input4, LOW);
-  digitalWrite(encoderB, speed);
-  delay(time);
-}
-void moveBackward(int speed, int time) {
-  digitalWrite(input1, LOW); 
-  digitalWrite(input2, HIGH);
-  digitalWrite(encoderA, speed);
-  digitalWrite(input3, LOW);
-  digitalWrite(input4, HIGH);
-  digitalWrite(encoderB, speed);
-  delay(time);
-}
-void stop(int time) {
-  moveForward(0, time);
-}
-void moveCircle(int speed, int time) {
-  digitalWrite(input1, LOW);
-  digitalWrite(input2, HIGH);
-  digitalWrite(encoderA, speed);
-  digitalWrite(input3, HIGH);
-  digitalWrite(input4, LOW);
-  digitalWrite(encoderB, speed);
-  delay(time);
-}
-
 void setup() {
-  Serial.begin(9600);
-  pinMode(heartbeat, OUTPUT);
+  Serial.begin(9600); // need this in order to print stuff out
 
-  // put your setup code here, to run once:
-  pinMode(encoderA, OUTPUT);
-  pinMode(input1, OUTPUT);
-  pinMode(input2, OUTPUT);
-  pinMode(encoderB, OUTPUT);
-  pinMode(input3, OUTPUT);
-  pinMode(input4, OUTPUT);
 
-  pinMode(ENCA, INPUT); //experimenting with having the magnetic encoders as inputs
-  pinMode(ENCB, INPUT);
-  pinMode(ENCC, INPUT);
-  pinMode(ENCD, INPUT);
+  pinMode(PWM, OUTPUT);
+  pinMode(PWM2, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
 
-  moveForward(50, 500);
-    stop(3000);
-  moveCircle(30, 150);
-    stop(3000);
-  moveForward(50, 500);
-    stop(3000);
-   moveCircle(30, 150);
-    stop(3000);
- moveCircle(30, 150);
-    stop(3000);
-  moveCircle(30, 150);
-    stop(3000);
-  moveForward(50, 500);
-    stop(3000);
+  // Set initial rotation direction
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
 
+  // Used to measure position later
+  attachInterrupt(digitalPinToInterrupt(ENCA), readEncoder1, RISING);
+  attachInterrupt(digitalPinToInterrupt(ENCC), readEncoder2, RISING);
 }
-void loop() {
 
-  int a = digitalRead(ENCA);  //reading encoder input and
+void readEncoder1() {
   int b = digitalRead(ENCB);
-  Serial << "a*b = " << a*b << ", b*5 = " << b*5;
-  Serial.println();
+  if (b > 0) {pos++;}
+  else {pos--;}
+}
+
+void readEncoder2() {
+  int b = digitalRead(ENCD);
+  if (b > 0) {pos++;}
+  else {pos--;}
+}
+
+int intensity = 160;
+
+void stop() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+}
+
+void move(int direction, int length) {
+  analogWrite(PWM, intensity); // Send PWM signal to L298N pin
+  analogWrite(PWM2, intensity); // Send PWM signal to L298N pin
+  if (direction == 1) {
+    int goal = pos + length;
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+
+    Serial.println(pos);
+
+    do {delay(1);} while (pos < goal);
+    stop();
+  }
+
+  if (direction == 0 || direction == -1) {
+    int goal = pos - length;
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, HIGH);
+
+    Serial.println(pos);
+    do {delay(1);} while (pos > goal);
+    stop();
+  }
+}
+
+void turn(int direction, int length) {
+  analogWrite(PWM, intensity); // Send PWM signal to L298N pin
+  analogWrite(PWM2, intensity); // Send PWM signal to L298N pin
+
+  if (direction == 1) {
+    int goal = pos + length;
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, HIGH);
+
+    Serial.println(pos);
+
+    delay(length * 6);
+    stop();
+  }
+
+  if (direction == 0 || direction == -1) {
+    int goal = pos - length;
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+
+    Serial.println(pos);
+    delay(length * 6);
+    stop();
+  }
+}
+
+void loop() {
+  // int potValue = analogRead(A0); // Read potentiometer value?
+  int pwmOutput = intensity; // Map the potentiometer value from 0 to 255
+  // Serial.print("pwmOutput = ");
+  // Serial.print(pwmOutput);
+  analogWrite(PWM, pwmOutput); // Send PWM signal to L298N pin
+  analogWrite(PWM2, pwmOutput); // Send PWM signal to L298N pin
+
+
+  move(1, 200);
+  delay(2000);
+  Serial.println(pos);
+
+
+  move(0, 200);
+  delay(2000);
+  Serial.println(pos);
 
 }
